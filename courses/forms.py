@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import GameProfile
+from .models import GameProfile, GroupLeague, LeagueChallenge, LeagueMessage
 
 
 class ProfileEditForm(forms.Form):
@@ -49,3 +49,41 @@ class RegisterForm(UserCreationForm):
         for f in self.fields:
             self.fields[f].widget.attrs.setdefault('class', 'form-input')
             self.fields[f].widget.attrs.setdefault('placeholder', self.fields[f].label)
+
+class GroupLeagueForm(forms.ModelForm):
+    target_tasks = forms.IntegerField(
+        label='Кількість завдань для проходження ліги',
+        min_value=1,
+        initial=20,
+        widget=forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Наприклад: 20'})
+    )
+
+    class Meta:
+        model = GroupLeague
+        fields = ['name', 'description', 'is_public', 'avatar']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Назва ліги'}),
+            'description': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Опис ліги'}),
+            'is_public': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'avatar': forms.FileInput(attrs={'class': 'form-input'}),
+        }
+
+class LeagueChallengeForm(forms.ModelForm):
+    class Meta:
+        model = LeagueChallenge
+        fields = ['title', 'description', 'goal_type', 'target_value', 'end_date']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Назва челенджу'}),
+            'description': forms.Textarea(attrs={'class': 'form-input', 'rows': 2, 'placeholder': 'Опис челенджу'}),
+            'goal_type': forms.Select(attrs={'class': 'form-input'}),
+            'target_value': forms.NumberInput(attrs={'class': 'form-input'}),
+            'end_date': forms.DateTimeInput(attrs={'class': 'form-input', 'type': 'datetime-local'}),
+        }
+
+class LeagueMessageForm(forms.ModelForm):
+    class Meta:
+        model = LeagueMessage
+        fields = ['text']
+        widgets = {
+            'text': forms.Textarea(attrs={'class': 'form-input', 'rows': 2, 'placeholder': 'Написати повідомлення...'}),
+        }

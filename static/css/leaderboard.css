@@ -1,0 +1,377 @@
+/* ——— Лідерборд з Мапою (Гейміфікація) ——— */
+.leaderboard-page-section {
+  padding: 40px 0 60px;
+}
+.leaderboard-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.league-badges-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+.league-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.league-badge.active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.league-badge.locked {
+  opacity: 0.4;
+  filter: grayscale(100%);
+}
+.shield-icon {
+  width: 50px;
+  height: 56px;
+  clip-path: polygon(50% 0%, 100% 15%, 100% 75%, 50% 100%, 0% 75%, 0% 15%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.league-header-banner {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.8) 0%, rgba(88, 28, 135, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  position: relative;
+  overflow: hidden;
+}
+.league-header-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-25deg);
+  animation: shine-banner 7s infinite;
+  pointer-events: none;
+}
+@keyframes shine-banner {
+  0% { left: -100%; }
+  20% { left: 200%; }
+  100% { left: 200%; }
+}
+[data-theme="dark"] .league-header-banner {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(46, 16, 101, 0.8) 100%);
+}
+.league-header-title {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.league-header-icon {
+  font-size: 2.8rem;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+.league-header-title h2 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+.league-countdown {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #0d7395;
+}
+[data-theme="dark"] .league-countdown {
+  background: rgba(0, 0, 0, 0.3);
+  color: #aee3f5;
+}
+
+.leaderboard-grid {
+  display: grid;
+  grid-template-columns: 4fr 5fr;
+  gap: 60px;
+  align-items: start;
+}
+
+/* Ліва колонка: Топ 10 */
+.green-zone table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+.green-zone tr {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(5px);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.green-zone tr:hover {
+  transform: translateX(8px) scale(1.02);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+[data-theme="dark"] .green-zone tr {
+  background: rgba(255, 255, 255, 0.02);
+}
+[data-theme="dark"] .green-zone tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.green-zone td {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.green-zone td:first-child {
+  border-radius: 16px 0 0 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+.green-zone td:last-child {
+  border-radius: 0 16px 16px 0;
+  text-align: right;
+  font-weight: 700;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+.green-zone .current-user-row {
+  background: linear-gradient(90deg, rgba(74, 222, 128, 0.15) 0%, rgba(74, 222, 128, 0.02) 100%) !important;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.1);
+}
+.green-zone .current-user-row td {
+  border-top: 1px solid #4ade80;
+  border-bottom: 1px solid #4ade80;
+}
+.green-zone .current-user-row td:first-child {
+  border-left: 4px solid #4ade80;
+}
+.green-zone .current-user-row td:last-child {
+  border-right: 1px solid #4ade80;
+}
+.green-zone .rank-arrow {
+  color: var(--success);
+  font-weight: 700;
+  width: 70px;
+}
+.green-zone .user-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Права колонка: Мапа Гра */
+.map-game-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.map-game-title {
+  font-family: var(--font-head);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 40px;
+  color: var(--text);
+}
+.map-nodes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+.map-node-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.map-node {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: var(--surface);
+  border: 3px solid var(--border-strong);
+  color: var(--text-muted);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  transition: all 0.3s var(--ease-spring);
+  position: relative;
+  z-index: 2;
+}
+.map-node.completed {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+}
+.map-node.current {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  transform: scale(1.15);
+  box-shadow: 0 0 20px var(--accent-glow);
+  animation: pulse 2s infinite;
+}
+.map-node.locked {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.next-league-chest {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+  font-size: 2rem;
+}
+.map-node-label {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.map-connector {
+  width: 4px;
+  height: 40px;
+  background: var(--border-strong);
+  margin: 8px 0;
+  border-radius: 2px;
+}
+.map-connector.completed-line {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(139, 92, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+
+@media (max-width: 900px) {
+  .leaderboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Зони Лідерборду (Змагання) --- */
+.promotion-zone {
+  background: rgba(34, 197, 94, 0.1) !important;
+}
+[data-theme="dark"] .promotion-zone {
+  background: rgba(34, 197, 94, 0.15) !important;
+}
+.promotion-zone .rank-arrow {
+  color: var(--success);
+}
+.demotion-zone {
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+[data-theme="dark"] .demotion-zone {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+.demotion-zone .rank-arrow {
+  color: var(--danger);
+}
+.safe-zone .rank-arrow {
+  color: var(--text-muted);
+}
+
+/* --- Блок Запрошення Друзів --- */
+.invite-friends-card {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  position: relative;
+  overflow: hidden;
+}
+.invite-friends-card::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+  animation: rotateGlow 10s linear infinite;
+  pointer-events: none;
+}
+@keyframes rotateGlow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.invite-friends-card h3 {
+  font-family: var(--font-head);
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.invite-friends-card p {
+  font-size: 1rem;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 20px;
+}
+.invite-link-wrapper {
+  display: flex;
+  gap: 8px;
+}
+.invite-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-body);
+  color: var(--text);
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+.invite-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* --- Animations --- */
+.animate-slide-in {
+  opacity: 0;
+  transform: translateX(-30px);
+  animation: slideInRow 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes slideInRow {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-pop-up {
+  opacity: 0;
+  transform: scale(0.5) translateY(20px);
+  animation: popUpNode 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popUpNode {
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

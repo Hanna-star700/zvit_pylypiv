@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Групи та Ліги{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/group_leagues.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="leagues-container">
+    <div class="leagues-header">
+        <div class="header-text">
+            <h1>Групи та Ліги <span class="badge">Нове</span></h1>
+            <p>Створюйте власні ліги, змагайтеся з друзями та здобувайте досягнення разом!</p>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'group_league_create' %}" class="btn btn-primary btn-lg create-btn">
+                <i class="fa fa-plus"></i> Створити лігу
+            </a>
+        </div>
+    </div>
+
+    <div class="join-section glass-panel">
+        <h3>Приєднатися за кодом</h3>
+        <form action="{% url 'group_league_join' %}" method="post" class="join-form">
+            {% csrf_token %}
+            <input type="text" name="join_code" placeholder="Введіть 8-значний код" required class="form-input join-input" maxlength="10">
+            <button type="submit" class="btn btn-secondary">Вступити</button>
+        </form>
+    </div>
+
+    <div class="leagues-grid">
+        <!-- User's Leagues -->
+        <div class="leagues-column">
+            <h2>Мої ліги</h2>
+            {% if user_leagues %}
+                <div class="league-cards">
+                    {% for membership in user_leagues %}
+                    <a href="{% url 'group_league_detail' membership.league.pk %}" class="league-card my-league">
+                        <div class="league-avatar">
+                            {% if membership.league.avatar %}
+                                <img src="{{ membership.league.avatar.url }}" alt="{{ membership.league.name }}">
+                            {% else %}
+                                <div class="avatar-placeholder">{{ membership.league.name|slice:":1" }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="league-info">
+                            <h3>{{ membership.league.name }}</h3>
+                            <div class="league-stats">
+                                <span class="role badge-{{ membership.role }}">{{ membership.get_role_display }}</span>
+                                <span class="points"><i class="fa fa-star text-warning"></i> {{ membership.points }} pts</span>
+                            </div>
+                        </div>
+                        <div class="league-arrow">
+                            <i class="fa fa-chevron-right"></i>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state glass-panel">
+                    <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" alt="Empty" width="80">
+                    <p>Ви ще не приєдналися до жодної ліги.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Public Leagues to Explore -->
+        <div class="leagues-column">
+            <h2>Досліджуйте публічні ліги</h2>
+            {% if public_leagues %}
+                <div class="league-cards">
+                    {% for league in public_leagues %}
+                    <div class="league-card public-league">
+                        <div class="league-avatar">
+                            {% if league.avatar %}
+                                <img src="{{ league.avatar.url }}" alt="{{ league.name }}">
+                            {% else %}
+                                <div class="avatar-placeholder bg-secondary">{{ league.name|slice:":1" }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="league-info">
+                            <h3>{{ league.name }}</h3>
+                            <p class="league-desc">{{ league.description|truncatechars:50 }}</p>
+                            <span class="members-count"><i class="fa fa-users"></i> {{ league.members.count }} учасників</span>
+                        </div>
+                        <div class="league-action">
+                            <form action="{% url 'group_league_join' %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="join_code" value="{{ league.join_code }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Вступити</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state glass-panel">
+                    <p>Наразі немає доступних публічних ліг для приєднання.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

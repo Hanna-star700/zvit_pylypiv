@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ league.name }} - Ліга{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/leaderboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/group_leagues.css' %}?v=2">
+<style>
+.league-map-page {
+  padding: 140px 0 80px;
+}
+.map-header {
+  text-align: center;
+  margin-bottom: 60px;
+  animation: fadeInDown 0.8s ease;
+}
+.map-league-title {
+  font-family: var(--font-head);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 10px;
+  text-shadow: 0 4px 10px var(--accent-glow);
+}
+.map-league-desc {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+/* Zig-Zag Map Styles */
+.zig-zag-path {
+  position: relative;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 50px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+}
+.zig-zag-path::before {
+  content: '';
+  position: absolute;
+  top: 50px; left: 50%;
+  bottom: 50px;
+  width: 8px;
+  background: rgba(255,255,255,0.1);
+  transform: translateX(-50%);
+  border-radius: 4px;
+  z-index: 0;
+}
+.path-node-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 140px;
+}
+.path-node-wrapper:nth-child(even) { align-self: flex-start; margin-left: 5%; }
+.path-node-wrapper:nth-child(odd) { align-self: flex-end; margin-right: 5%; }
+.path-node-wrapper:last-child { align-self: center; margin: 0; }
+
+.path-node {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem;
+  background: var(--surface);
+  border: 4px solid var(--border-strong);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.path-node:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+}
+.path-node.completed {
+  background: var(--success);
+  border-color: #16a34a;
+  color: white;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+}
+.path-node.current {
+  background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+  border-color: #a855f7;
+  color: white;
+  transform: scale(1.15);
+  box-shadow: 0 0 30px var(--accent-glow);
+  animation: pulse-current 2s infinite;
+}
+.path-node.locked {
+  background: rgba(0,0,0,0.5);
+  border-color: rgba(255,255,255,0.1);
+  filter: grayscale(1);
+}
+.node-label {
+  margin-top: 15px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+@keyframes pulse-current {
+  0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(139, 92, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+
+/* Модальне вікно (Попап) */
+.map-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+.map-modal-overlay.active {
+  opacity: 1; visibility: visible;
+}
+.map-modal {
+  background: var(--bg-card);
+  width: 90%; max-width: 450px;
+  padding: 40px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  text-align: center;
+  position: relative;
+  transform: translateY(30px) scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+.map-modal-overlay.active .map-modal {
+  transform: translateY(0) scale(1);
+}
+.modal-close {
+  position: absolute; top: 15px; right: 20px;
+  font-size: 1.5rem; color: var(--text-muted);
+  cursor: pointer; background: none; border: none;
+}
+.modal-close:hover { color: var(--text); }
+.modal-image {
+  width: 100%; max-width: 250px; height: auto;
+  border-radius: 12px; margin-bottom: 24px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+.modal-title {
+  font-family: var(--font-head); font-size: 1.8rem;
+  color: var(--text); margin-bottom: 12px;
+}
+.modal-desc {
+  font-size: 1.05rem; color: var(--text-secondary);
+  margin-bottom: 30px; line-height: 1.6;
+}
+.modal-btn {
+  width: 100%; padding: 16px;
+  font-size: 1.1rem; font-weight: 700;
+  border-radius: 12px;
+}
+
+/* Floating Chat */
+.chat-widget-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  color: white;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  cursor: pointer;
+  z-index: 999;
+  border: none;
+  transition: transform 0.3s;
+}
+.chat-widget-btn:hover {
+  transform: scale(1.1);
+}
+.chat-panel {
+  position: fixed;
+  bottom: 100px;
+  right: 30px;
+  width: 350px;
+  height: 500px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  z-index: 998;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(20px);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.chat-panel.active {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+.chat-header {
+  padding: 15px 20px;
+  background: rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.chat-header h3 { margin: 0; font-size: 1.2rem; }
+.close-chat { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+.close-chat:hover { color: white; }
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.chat-message { display: flex; gap: 10px; }
+.chat-message.my-message { flex-direction: row-reverse; }
+.chat-avatar { width: 32px; height: 32px; flex-shrink: 0; }
+.chat-avatar img { width: 100%; height: 100%; border-radius: 50%; }
+.chat-bubble {
+  background: rgba(255,255,255,0.05);
+  padding: 10px 15px;
+  border-radius: 16px;
+  border-top-left-radius: 0;
+  max-width: 80%;
+  font-size: 0.95rem;
+}
+.my-message .chat-bubble {
+  background: rgba(139, 92, 246, 0.2);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 0;
+}
+.chat-author { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+.my-message .chat-author { text-align: right; }
+.chat-input-area {
+  padding: 15px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+  border-radius: 0 0 20px 20px;
+}
+.chat-form { display: flex; gap: 10px; }
+.chat-form input[type="text"] {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 20px;
+  outline: none;
+}
+.chat-form button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="league-map-page">
+  <div class="container">
+    
+    <!-- Header -->
+    <div class="map-header">
+      <div class="league-avatar-large" style="width: 80px; height: 80px; border-radius: 20px; overflow: hidden; margin: 0 auto 15px; border: 2px solid var(--border-strong); box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+          {% if league.avatar %}
+              <img src="{{ league.avatar.url }}" alt="{{ league.name }}" style="width: 100%; height: 100%; object-fit: cover;">
+          {% else %}
+              <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f59e0b, #ef4444); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: white;">{{ league.name|slice:":1" }}</div>
+          {% endif %}
+      </div>
+      <h1 class="map-league-title">{{ league.name }}</h1>
+      <p class="map-league-desc">{{ league.description }}</p>
+    </div>
+
+    <!-- Dual Columns -->
+    <div class="leaderboard-grid">
+      
+      <!-- Left Column: Leaderboard & Actions -->
+      <div class="leaderboard-col left-col">
+        <div class="leaderboard-table no-border green-zone">
+          <table style="width: 100%;">
+            <tbody>
+              {% for m in members %}
+              <tr class="promotion-row animate-slide-in 
+                {% if forloop.counter <= 3 %}promotion-zone
+                {% elif forloop.counter >= 8 %}demotion-zone
+                {% else %}safe-zone{% endif %}
+                {% if m.user == user %}current-user-row{% endif %}"
+                  style="animation-delay: calc({{ forloop.counter }} * 0.1s);">
+                
+                <td class="rank-arrow">
+                  <span class="arrow-up">
+                    {% if forloop.counter <= 3 %}︽
+                    {% elif forloop.counter >= 8 %}︾
+                    {% else %}—{% endif %}
+                  </span> 
+                  #{{ forloop.counter }}
+                </td>
+                <td class="user-name">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                      <img src="{% if m.user.game_profile.avatar %}{{ m.user.game_profile.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ m.user.username }}&background=random{% endif %}" style="width: 30px; height: 30px; border-radius: 50%;" alt="">
+                      <div>
+                          {{ m.user.username }} {% if m.user == user %}(Ви){% endif %}
+                          {% if m.role == 'admin' %}<span style="font-size: 0.6rem; background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-left: 5px;">Admin</span>{% endif %}
+                      </div>
+                  </div>
+                </td>
+                <td class="points" style="text-align: right; font-weight: bold;">{{ m.points }}</td>
+                {% if member.role == 'admin' and m.user != user %}
+                <td style="width: 30px; text-align: center;">
+                    <form action="{% url 'group_league_remove' league.pk m.user.id %}" method="post" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" style="background:none; border:none; color: #ef4444; cursor: pointer;" title="Видалити"><i class="fa fa-times"></i></button>
+                    </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr><td class="user-name" colspan="3">Немає учасників.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Actions & Invite -->
+        <div class="invite-friends-card mt-4">
+          <h3>🎮 Змагайся з друзями!</h3>
+          <p>Поділіться кодом приєднання, щоб запросити друзів до ліги.</p>
+          <div class="invite-link-wrapper" style="margin-bottom: 20px;">
+             <input type="text" class="invite-input" id="inviteInput" value="{{ league.join_code }}" readonly style="text-align: center; font-size: 1.2rem; letter-spacing: 2px;">
+             <button class="btn btn-primary" onclick="copyInviteCode()">Копіювати</button>
+          </div>
+          
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              {% if member %}
+                  <form action="{% url 'group_league_leave' league.pk %}" method="post" onsubmit="return confirm('Ви дійсно хочете покинути цю лігу?');" style="margin:0;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Вийти з ліги</button>
+                  </form>
+                  {% if member.role == 'admin' %}
+                  <form action="{% url 'group_league_delete' league.pk %}" method="post" onsubmit="return confirm('Ви дійсно хочете видалити цю лігу назавжди?');" style="margin:0;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-danger btn-sm">Видалити лігу</button>
+                  </form>
+                  {% endif %}
+              {% else %}
+                  <form action="{% url 'group_league_join' %}" method="post" style="margin:0;">
+                      {% csrf_token %}
+                      <input type="hidden" name="join_code" value="{{ league.join_code }}">
+                      <button type="submit" class="btn btn-primary">Приєднатися до Ліги</button>
+                  </form>
+              {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Map -->
+      <div class="leaderboard-col right-col">
+        {% if member.role == 'admin' %}
+        <div style="text-align: right; margin-bottom: 15px;">
+            <button class="btn btn-sm btn-primary" onclick="document.getElementById('challenge-form-box').style.display='block'">+ Додати Етап</button>
+        </div>
+        <div id="challenge-form-box" class="glass-panel" style="display:none; margin-bottom:20px; padding: 20px; text-align: left;">
+            <h3 style="margin-top: 0;">Новий етап</h3>
+            <form action="{% url 'group_league_challenge_create' league.pk %}" method="post">
+                {% csrf_token %}
+                {{ challenge_form.as_p }}
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="submit" class="btn btn-success">Створити</button>
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('challenge-form-box').style.display='none'">Скасувати</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <div class="zig-zag-path" style="padding-top: 50px; background-image: url('{% static 'img/map_bg.png' %}'); background-size: cover; background-position: center; border-radius: 24px; box-shadow: inset 0 0 50px rgba(0,0,0,0.5);">
+            {% for c in challenges %}
+            <div class="path-node-wrapper animate-pop-up" style="animation-delay: calc({{ forloop.counter }} * 0.2s);">
+                <div class="path-node {% if member and member.points >= c.target_value %}completed{% elif forloop.first or member and member.points >= c.target_value|add:'-20' %}current{% else %}locked{% endif %}"
+                     onclick="openModal('{{ c.title|escapejs }}', '{{ c.description|escapejs }}\n\nЦіль: {{ c.target_value }} балів', ''); {% if member and member.points >= c.target_value %}window.fireConfetti();{% endif %}">
+                     {% if member and member.points >= c.target_value %}✓{% else %}★{% endif %}
+                </div>
+                <div class="node-label">{{ c.title }}<br><small style="color:#fbbf24; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">{{ c.target_value }} pts</small></div>
+            </div>
+            {% empty %}
+                <div style="text-align: center; padding: 40px 20px; background: rgba(0,0,0,0.5); border-radius: 16px; margin: 0 40px;">
+                    <p style="color: white; font-weight: bold;">Наразі немає активних етапів. Адміністратор може створити їх вище.</p>
+                </div>
+            {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Модальне вікно для етапів -->
+<div class="map-modal-overlay" id="mapModalOverlay">
+  <div class="map-modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <img src="" alt="Тематичне зображення етапу" class="modal-image" id="modalImage" style="display:none;">
+    <h2 class="modal-title" id="modalTitle">Назва етапу</h2>
+    <p class="modal-desc" id="modalDesc" style="white-space: pre-wrap;">Опис завдання, що необхідно виконати для проходження цього етапу ліги.</p>
+    <button class="btn btn-primary modal-btn" onclick="closeModal()">Зрозуміло</button>
+  </div>
+</div>
+
+<!-- Floating Chat -->
+{% if member %}
+<button class="chat-widget-btn" onclick="toggleChat()">
+    <i class="fa fa-comments"></i>
+</button>
+
+<div class="chat-panel" id="chatPanel">
+    <div class="chat-header">
+        <h3>Чат ліги</h3>
+        <button class="close-chat" onclick="toggleChat()"><i class="fa fa-times"></i></button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        {% for msg in messages %}
+        <div class="chat-message {% if msg.user == user %}my-message{% endif %}">
+            <div class="chat-avatar">
+                <img src="{% if msg.user.game_profile.avatar %}{{ msg.user.game_profile.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ msg.user.username }}&background=random{% endif %}" alt="avatar">
+            </div>
+            <div class="chat-bubble">
+                <div class="chat-author">{{ msg.user.username }} <span style="margin-left: 5px; opacity: 0.7;">{{ msg.created_at|date:"H:i" }}</span></div>
+                <div class="chat-text">{{ msg.text }}</div>
+            </div>
+        </div>
+        {% empty %}
+            <div style="text-align: center; color: var(--text-muted); margin-top: 20px;">Повідомлень ще немає. Будьте першим!</div>
+        {% endfor %}
+    </div>
+    <div class="chat-input-area">
+        <form action="{% url 'group_league_chat' league.pk %}" method="post" class="chat-form">
+            {% csrf_token %}
+            <input type="text" name="text" placeholder="Напишіть повідомлення..." required autocomplete="off">
+            <button type="submit"><i class="fa fa-paper-plane"></i></button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function copyInviteCode() {
+  const code = document.getElementById("inviteInput");
+  code.select();
+  code.setSelectionRange(0, 99999);
+  document.execCommand("copy");
+  alert("Код скопійовано: " + code.value);
+}
+
+function openModal(title, desc, imgSrc) {
+  document.getElementById('modalTitle').innerText = title;
+  document.getElementById('modalDesc').innerText = desc;
+  
+  const imgEl = document.getElementById('modalImage');
+  if (imgSrc) {
+    imgEl.src = imgSrc;
+    imgEl.style.display = 'inline-block';
+  } else {
+    imgEl.style.display = 'none';
+  }
+
+  document.getElementById('mapModalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('mapModalOverlay').classList.remove('active');
+}
+
+// Зачинення при кліку повз вікно
+document.getElementById('mapModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeModal();
+  }
+});
+
+function toggleChat() {
+    const panel = document.getElementById('chatPanel');
+    panel.classList.toggle('active');
+    if(panel.classList.contains('active')){
+        const messages = document.getElementById('chatMessages');
+        messages.scrollTop = messages.scrollHeight;
+    }
+}
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@
   <meta property="og:description" content="{% block og_description %}Безкоштовна платформа для вивчення Python та JavaScript. Покрокові уроки, тести, завдання з кодом.{% endblock %}">
   <meta property="og:locale" content="uk_UA">
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_css %}{% endblock %}
   <script>
     (function(){
       var t = localStorage.getItem('learncode-theme');
@@ -38,6 +39,7 @@
         <a href="{% url 'course_list' %}">Мої курси</a>
         <a href="{% url 'dashboard' %}">Профіль</a>
         <a href="{% url 'leaderboard' %}">Лідерборд</a>
+        <a href="{% url 'leagues_map' %}">Ліги</a>
         <a href="{% url 'achievements_list' %}">Досягнення</a>
         <form method="post" action="{% url 'logout' %}" class="nav-logout-form">
           {% csrf_token %}
@@ -101,7 +103,66 @@
     </div>
   </footer>
 
+  <!-- Global Achievement Popup Container -->
+  <div id="global-achievement-popup" class="achievement-popup">
+      <div class="ach-popup-content">
+          <div class="ach-icon" id="ach-popup-icon">🏆</div>
+          <div class="ach-text">
+              <div class="ach-title-label">Нове досягнення!</div>
+              <div class="ach-name" id="ach-popup-name">Назва</div>
+              <div class="ach-desc" id="ach-popup-desc">Опис</div>
+          </div>
+      </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="{% static 'js/app.js' %}"></script>
+  <script>
+      // Global Achievement Animation Function
+      window.showAchievement = function(name, icon, description) {
+          const popup = document.getElementById('global-achievement-popup');
+          document.getElementById('ach-popup-name').innerText = name;
+          document.getElementById('ach-popup-desc').innerText = description || '';
+          document.getElementById('ach-popup-icon').innerText = icon || '🏆';
+          
+          // Reset animation by removing and re-adding class
+          popup.classList.remove('show-achievement');
+          void popup.offsetWidth; // trigger reflow
+          popup.classList.add('show-achievement');
+          
+          // Auto hide after 5 seconds
+          setTimeout(() => {
+              popup.classList.remove('show-achievement');
+          }, 5000);
+      };
+
+      // Global Confetti Celebration
+      window.fireConfetti = function() {
+          var duration = 3000;
+          var end = Date.now() + duration;
+
+          (function frame() {
+              confetti({
+                  particleCount: 5,
+                  angle: 60,
+                  spread: 55,
+                  origin: { x: 0 },
+                  colors: ['#8b5cf6', '#38bdf8', '#4ade80', '#fbbf24']
+              });
+              confetti({
+                  particleCount: 5,
+                  angle: 120,
+                  spread: 55,
+                  origin: { x: 1 },
+                  colors: ['#8b5cf6', '#38bdf8', '#4ade80', '#fbbf24']
+              });
+
+              if (Date.now() < end) {
+                  requestAnimationFrame(frame);
+              }
+          }());
+      };
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

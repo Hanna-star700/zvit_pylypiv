@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Сервіс гейміфікації: бали, вогник, ліги, досягнення."""
 from datetime import date, timedelta, datetime
-from django.db.models import Sum
+from django.db.models import Sum, F
 
 from .models import (
     GameProfile, League, Achievement, UserAchievement,
     UserProgress, QuizAttempt, DailyStudyTime, AILessonQuizAttempt,
+    GroupLeague, GroupLeagueMember, LeagueChallenge
 )
 
 
@@ -67,6 +68,9 @@ def add_points(profile, points, reason=''):
     profile.points += points
     profile.save(update_fields=['points'])
     update_league(profile)
+
+    if profile.user_id:
+        GroupLeagueMember.objects.filter(user_id=profile.user_id).update(points=F('points') + points)
 
 
 def count_completed_lessons(request):

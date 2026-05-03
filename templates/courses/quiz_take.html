@@ -321,11 +321,16 @@
     var newAchWrap = document.getElementById('quiz-result-new-achievements');
     if (newAchWrap && res.new_achievements && res.new_achievements.length > 0) {
       newAchWrap.innerHTML = '';
-      res.new_achievements.forEach(function(a) {
+      res.new_achievements.forEach(function(a, idx) {
         var p = document.createElement('p');
         p.className = 'achievement-toast';
         p.innerHTML = '<span class="achievement-toast-icon">' + (a.icon || '🏆') + '</span> <strong>Ви отримали досягнення:</strong> ' + (a.name || '') + (a.description ? ' — ' + a.description : '');
         newAchWrap.appendChild(p);
+        
+        // Trigger the global popup animation
+        setTimeout(function() {
+          if (window.showAchievement) window.showAchievement(a.name, a.icon, a.description);
+        }, idx * 5500);
       });
       newAchWrap.style.display = 'block';
     } else if (newAchWrap) newAchWrap.style.display = 'none';

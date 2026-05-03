@@ -16,7 +16,7 @@ from django.db.models import Q
 from .models import (
     Course, Lesson, Exercise, Quiz, Question, Rating,
     League, GameProfile, Achievement, UserAchievement, Competition, QuizAttempt,
-    AIPracticeAttempt, PodcastConversation,
+    AIPracticeAttempt, PodcastConversation, GroupLeague, GroupLeagueMember, LeagueChallenge, LeagueMessage
 )
 from .ai_service import (
     generate_task as ai_generate_task,
@@ -35,7 +35,8 @@ from .services import (
     count_completed_lessons_for_course, get_weekly_study_time, count_quizzes_passed,
     add_points,
 )
-from .forms import RegisterForm, ProfileEditForm
+from .forms import RegisterForm, ProfileEditForm, GroupLeagueForm, LeagueChallengeForm, LeagueMessageForm
+
 
 
 def page_not_found_view(request, exception=None):
@@ -529,6 +530,36 @@ def leaderboard(request):
     return render(request, 'courses/leaderboard.html', {'leaderboard': top})
 
 
+# ——— Ліги (Мапа) ———
+@login_required
+def leagues_map(request):
+    top = get_leaderboard(10)
+    from .models import League
+    leagues = League.objects.all().order_by('order')
+    profile = get_or_create_profile(request)
+    
+    current_league_name = profile.league.name if profile.league else "Осіння ліга"
+    current_league_icon = profile.league.icon if profile.league else "🔘"
+    
+    # 5 етапів для поточної ліги. Можна брати з БД, тут - динамічний розрахунок
+    completed_sectors = min(5, profile.points // 50)
+    
+    user_leagues = GroupLeagueMember.objects.filter(user=request.user).select_related('league')
+    public_leagues = GroupLeague.objects.filter(is_public=True).exclude(members__user=request.user)
+    
+    context = {
+        'leaderboard': top,
+        'leagues': leagues,
+        'profile': profile,
+        'current_league_name': current_league_name,
+        'current_league_icon': current_league_icon,
+        'completed_sectors': completed_sectors,
+        'user_leagues': user_leagues,
+        'public_leagues': public_leagues,
+    }
+    return render(request, 'courses/leagues_map.html', context)
+
+
 # ——— Змагання ———
 @login_required
 def competition_list(request):
@@ -738,3 +769,126 @@ def quiz_submit(request, quiz_id):
         quiz_part = (correct_count / total_questions) if total_questions else 0
         payload['placement_coefficient'] = round(0.7 * quiz_part + 0.3 * ai_score_normalized, 3)
     return JsonResponse(payload)
+
+
+# ——— Кастомні Ліги (Групи) ———
+@login_required
+def group_league_list(request):
+    user_leagues = GroupLeagueMember.objects.filter(user=request.user).select_related('league')
+    public_leagues = GroupLeague.objects.filter(is_public=True).exclude(members__user=request.user)
+    return render(request, 'courses/leagues/league_list.html', {
+        'user_leagues': user_leagues,
+        'public_leagues': public_leagues,
+    })
+
+@login_required
+def group_league_create(request):
+    if request.method == 'POST':
+        form = GroupLeagueForm(request.POST, request.FILES)
+        if form.is_valid():
+            league = form.save(commit=False)
+            league.created_by = request.user
+            league.save()
+            GroupLeagueMember.objects.create(league=league, user=request.user, role='admin')
+            
+            target_tasks = form.cleaned_data.get('target_tasks', 20)
+            LeagueChallenge.objects.create(
+                league=league,
+                title="Головна ціль ліги",
+                description=f"Вирішити {target_tasks} завдань для проходження цієї ліги.",
+                goal_type='tasks',
+                target_value=target_tasks,
+                start_date=timezone.now(),
+                end_date=timezone.now() + timezone.timedelta(days=30)
+            )
+            return redirect('group_league_detail', pk=league.pk)
+    else:
+        form = GroupLeagueForm()
+    return render(request, 'courses/leagues/league_form.html', {'form': form})
+
+@login_required
+def group_league_detail(request, pk):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    member = GroupLeagueMember.objects.filter(league=league, user=request.user).first()
+    if not member and not league.is_public:
+        return redirect('group_league_list')
+        
+    members = league.members.select_related('user__game_profile').order_by('-points', 'joined_at')
+    challenges = league.challenges.all().order_by('target_value')
+    messages = league.messages.select_related('user__game_profile').order_by('-created_at')[:50]
+    
+    challenge_form = LeagueChallengeForm() if member and member.role == 'admin' else None
+    message_form = LeagueMessageForm() if member else None
+
+    return render(request, 'courses/leagues/league_detail.html', {
+        'league': league,
+        'member': member,
+        'members': members,
+        'challenges': challenges,
+        'messages': reversed(messages),
+        'challenge_form': challenge_form,
+        'message_form': message_form,
+    })
+
+@login_required
+def group_league_join(request):
+    if request.method == 'POST':
+        code = request.POST.get('join_code', '').strip().upper()
+        if code:
+            league = GroupLeague.objects.filter(join_code=code).first()
+            if league:
+                if not GroupLeagueMember.objects.filter(league=league, user=request.user).exists():
+                    GroupLeagueMember.objects.create(league=league, user=request.user)
+                return redirect('group_league_detail', pk=league.pk)
+    return redirect('group_league_list')
+
+@login_required
+@require_POST
+def group_league_leave(request, pk):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    GroupLeagueMember.objects.filter(league=league, user=request.user).delete()
+    return redirect('group_league_list')
+
+@login_required
+@require_POST
+def group_league_remove(request, pk, user_id):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    admin_member = GroupLeagueMember.objects.filter(league=league, user=request.user, role='admin').first()
+    if admin_member:
+        GroupLeagueMember.objects.filter(league=league, user_id=user_id).exclude(user=request.user).delete()
+    return redirect('group_league_detail', pk=pk)
+
+@login_required
+@require_POST
+def group_league_delete(request, pk):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    if league.created_by == request.user:
+        league.delete()
+    return redirect('group_league_list')
+
+@login_required
+@require_POST
+def group_league_chat(request, pk):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    if GroupLeagueMember.objects.filter(league=league, user=request.user).exists():
+        form = LeagueMessageForm(request.POST)
+        if form.is_valid():
+            msg = form.save(commit=False)
+            msg.league = league
+            msg.user = request.user
+            msg.save()
+    return redirect('group_league_detail', pk=pk)
+
+@login_required
+@require_POST
+def group_league_challenge_create(request, pk):
+    league = get_object_or_404(GroupLeague, pk=pk)
+    member = GroupLeagueMember.objects.filter(league=league, user=request.user, role='admin').first()
+    if member:
+        form = LeagueChallengeForm(request.POST)
+        if form.is_valid():
+            challenge = form.save(commit=False)
+            challenge.league = league
+            challenge.start_date = timezone.now()
+            challenge.save()
+    return redirect('group_league_detail', pk=pk)

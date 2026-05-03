@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import uuid
 
 
 # ——— Рейтинги ———
@@ -76,6 +77,16 @@ class GameProfile(models.Model):
     def __str__(self):
         return f'{self.session_key or self.user}: {self.points} pts'
 
+    @property
+    def rank_title(self):
+        if self.points >= 5000:
+            return 'Senior'
+        elif self.points >= 1000:
+            return 'Middle'
+        else:
+            return 'Junior'
+
+
 
 # ——— Досягнення ———
 class Achievement(models.Model):
@@ -104,6 +115,9 @@ class Achievement(models.Model):
             ('points_100', '100 балів'),
             ('points_500', '500 балів'),
             ('points_1000', '1000 балів'),
+            ('first_league', 'Вступ до ліги'),
+            ('league_top', 'Топ місця в лізі'),
+            ('challenge_done', 'Виконано челендж'),
         ],
         default='first_lesson',
     )
@@ -381,3 +395,128 @@ class AILessonQuizAttempt(models.Model):
 
     def __str__(self):
         return f"{self.lesson.title} ({self.question_type}) — {self.user.username}"
+
+
+
+# ——— Кастомні Ліги (Групи) ———
+class GroupLeague(models.Model):
+    name = models.CharField('Назва', max_length=150)
+    description = models.TextField('Опис', blank=True)
+    is_public = models.BooleanField('Публічна', default=True)
+    join_code = models.CharField('Код приєднання', max_length=10, unique=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_group_leagues')
+    created_at = models.DateTimeField(auto_now_add=True)
+    avatar = models.ImageField('Аватар ліги', upload_to='league_avatars/', null=True, blank=True)
+    
+    class Meta:
+        verbose_name = 'Кастомна Ліга'
+        verbose_name_plural = 'Кастомні Ліги'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.join_code:
+            self.join_code = str(uuid.uuid4())[:8].upper()
+        super().save(*args, **kwargs)
+
+class GroupLeagueMember(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Адміністратор'),
+        ('member', 'Учасник'),
+    ]
+    league = models.ForeignKey(GroupLeague, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_leagues')
+    role = models.CharField('Роль', max_length=10, choices=ROLE_CHOICES, default='member')
+    points = models.PositiveIntegerField('Бали в поточному сезоні', default=0)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['league', 'user']]
+        verbose_name = 'Учасник ліги'
+        verbose_name_plural = 'Учасники ліги'
+        ordering = ['-points', 'joined_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.league.name} ({self.points} pts)"
+
+class LeagueChallenge(models.Model):
+    GOAL_CHOICES = [
+        ('points', 'Набрати бали'),
+        ('tasks', 'Вирішити завдання'),
+    ]
+    league = models.ForeignKey(GroupLeague, on_delete=models.CASCADE, related_name='challenges')
+    title = models.CharField('Назва челенджу', max_length=200)
+    description = models.TextField('Опис', blank=True)
+    goal_type = models.CharField('Тип цілі', max_length=20, choices=GOAL_CHOICES, default='tasks')
+    target_value = models.PositiveIntegerField('Цільове значення')
+    start_date = models.DateTimeField('Початок')
+    end_date = models.DateTimeField('Кінець')
+    is_active = models.BooleanField('Активний', default=True)
+
+    class Meta:
+        verbose_name = 'Челендж ліги'
+        verbose_name_plural = 'Челенджі ліги'
+        ordering = ['-end_date']
+
+    def __str__(self):
+        return f"{self.league.name}: {self.title}"
+
+class LeagueSeasonResult(models.Model):
+    league = models.ForeignKey(GroupLeague, on_delete=models.CASCADE, related_name='season_results')
+    season_name = models.CharField('Назва сезону', max_length=100)
+    end_date = models.DateTimeField('Дата завершення', auto_now_add=True)
+    winners_data = models.JSONField('Результати', default=dict) # Store top 3 users and points
+
+    class Meta:
+        verbose_name = 'Результат сезону'
+        verbose_name_plural = 'Результати сезонів'
+        ordering = ['-end_date']
+
+class LeagueMessage(models.Model):
+    league = models.ForeignKey(GroupLeague, on_delete=models.CASCADE, related_name='messages')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='league_messages')
+    text = models.TextField('Повідомлення')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Повідомлення ліги'
+        verbose_name_plural = 'Повідомлення ліг'
+        ordering = ['created_at']
+
+
+# ——— Щоденні Квести ———
+class DailyQuest(models.Model):
+    QUEST_TYPES = [
+        ('lesson', 'Завершити урок'),
+        ('points', 'Набрати бали'),
+        ('quiz', 'Пройти тест'),
+    ]
+    name = models.CharField('Назва квесту', max_length=200)
+    quest_type = models.CharField('Тип', max_length=20, choices=QUEST_TYPES)
+    target_value = models.PositiveIntegerField('Цільове значення')
+    xp_reward = models.PositiveIntegerField('Нагорода (XP)', default=50)
+    icon = models.CharField('Іконка', max_length=10, default='📜')
+
+    class Meta:
+        verbose_name = 'Щоденний квест'
+        verbose_name_plural = 'Щоденні квести'
+
+    def __str__(self):
+        return self.name
+
+class UserQuestProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quest_progress')
+    quest = models.ForeignKey(DailyQuest, on_delete=models.CASCADE)
+    current_value = models.PositiveIntegerField('Поточне значення', default=0)
+    is_completed = models.BooleanField('Виконано', default=False)
+    date = models.DateField('Дата', auto_now_add=True)
+
+    class Meta:
+        unique_together = [['user', 'quest', 'date']]
+        verbose_name = 'Прогрес квесту'
+        verbose_name_plural = 'Прогрес квестів'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.quest.name} ({self.current_value}/{self.quest.target_value})"

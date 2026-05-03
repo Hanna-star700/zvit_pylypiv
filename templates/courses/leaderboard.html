@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Лідерборд — LearnCode{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/leaderboard.css' %}?v=2">
+{% endblock %}
 
 {% block content %}
 <section class="page-hero">
@@ -10,9 +15,9 @@
 </section>
 
 <section class="section">
-  <div class="container">
-    <div class="leaderboard-table reveal">
-      <table>
+  <div class="container" style="max-width: 900px;">
+    <div class="leaderboard-table reveal green-zone">
+      <table style="width: 100%; border-collapse: separate; border-spacing: 0 10px;">
         <thead>
           <tr>
             <th>#</th>
@@ -24,18 +29,27 @@
         </thead>
         <tbody>
           {% for p in leaderboard %}
-          <tr>
-            <td class="rank">{{ forloop.counter }}</td>
-            <td>
-              {% if p.user %}
-                {{ p.user.username }}
-              {% else %}
-                Учень #{{ p.session_key|slice:":8" }}
-              {% endif %}
+          <tr class="{% if p.user == user %}current-user-row{% endif %}">
+            <td class="rank-arrow">
+              <span class="arrow-up">
+                {% if forloop.counter <= 3 %}︽
+                {% elif forloop.counter >= 8 %}︾
+                {% else %}—{% endif %}
+              </span> 
+              #{{ forloop.counter }}
             </td>
-            <td>{% if p.league %}{{ p.league.icon }} {{ p.league.name }}{% else %}—{% endif %}</td>
-            <td class="points">{{ p.points }}</td>
-            <td>🔥 {{ p.streak_days }}</td>
+            <td class="user-name">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                  <img src="{% if p.user.game_profile.avatar %}{{ p.user.game_profile.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ p.user.username|default:'U' }}&background=random{% endif %}" style="width: 30px; height: 30px; border-radius: 50%;" alt="">
+                  <div>
+                      {% if p.user %}{{ p.user.username }}{% else %}Учень #{{ p.session_key|slice:":8" }}{% endif %}
+                      {% if p.user == user %} (Ви){% endif %}
+                  </div>
+              </div>
+            </td>
+            <td style="color: rgba(255,255,255,0.6);">{% if p.league %}{{ p.league.icon }} {{ p.league.name }}{% else %}—{% endif %}</td>
+            <td class="points" style="font-size: 1.1rem; color: #fbbf24;">{{ p.points }}</td>
+            <td style="text-align: right;"><span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9rem;">🔥 {{ p.streak_days }}</span></td>
           </tr>
           {% empty %}
           <tr><td colspan="5">Поки ніхто не заробив балів. Стань першим!</td></tr>
