@@ -18,12 +18,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-pro
 DEBUG = 'True'
 
 # Налаштування ALLOWED_HOSTS
-ALLOWED_HOSTS_RAW = os.environ.get('ALLOWED_HOSTS', '')
-if ALLOWED_HOSTS_RAW:
-    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_RAW.split(',')]
-else:
-    # Для розробки - дозволяємо всі, для production - краще вказати явно
-    ALLOWED_HOSTS = ['*'] if DEBUG else ['learncode.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
